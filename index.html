@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171512" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tasty Diary">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Tasty Diary</title>
+<style>
+  :root{
+    --paper:#f6f1e7; --card:#fffdf8; --ink:#1f1d1a; --muted:#7a7266; --line:#d6cdbd;
+    --accent:#b4532a; --accent-soft:rgba(180,83,42,.16); --ok:#3d7a4f;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+    --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --paper:#171512; --card:#211e1a; --ink:#ece6da; --muted:#9a9182; --line:#3d372f;
+      --accent:#e0804f; --accent-soft:rgba(224,128,79,.2); --ok:#79b98a; }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:16px}
+  body{min-height:100vh; padding-bottom:calc(72px + var(--safe-b))}
+  header{position:sticky; top:0; z-index:5; background:var(--paper);
+    padding:calc(10px + var(--safe-t)) 18px 10px; border-bottom:1px dashed var(--line);
+    display:flex; align-items:baseline; justify-content:space-between; gap:12px}
+  header h1{font-family:var(--mono); font-size:15px; letter-spacing:.14em; margin:0; text-transform:uppercase}
+  header .sub{font-family:var(--mono); font-size:12px; color:var(--muted)}
+  main{max-width:620px; margin:0 auto; padding:14px 16px 24px}
+  .view{display:none} .view.active{display:block}
+
+  .sheet{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px}
+  .label{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between}
+  .label .req{color:var(--accent)}
+  .field{display:block; margin-bottom:12px}
+  .field:last-child{margin-bottom:0}
+  input[type=text], input[type=date], input[type=search], textarea, select{
+    width:100%; font:inherit; font-size:17px; color:var(--ink); background:transparent;
+    border:0; border-bottom:1.5px dotted var(--line); border-radius:0; padding:6px 0 7px; outline:none; -webkit-appearance:none; appearance:none}
+  input:focus, textarea:focus{border-bottom-color:var(--accent)}
+  input.missing{border-bottom-color:var(--accent)}
+  textarea{min-height:96px; resize:vertical; line-height:1.4}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:0 14px}
+
+  .lockmsg{font-family:var(--mono); font-size:12px; color:var(--accent); text-align:center; margin:4px 0 10px}
+  .locked .radar-wrap, .locked .chips, .locked .overall{opacity:.28; pointer-events:none; filter:grayscale(1)}
+  .radar-wrap{margin:0 -10px} .radar-wrap svg{width:100%; height:auto; display:block; touch-action:manipulation; user-select:none; -webkit-user-select:none}
+  .radar-wrap text{font-family:var(--mono); fill:var(--ink)}
+  .chips{display:grid; grid-template-columns:repeat(2,1fr); gap:6px; margin-top:6px}
+  .chip{font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center;
+    padding:8px 10px; border:1px solid var(--line); border-radius:9px; background:transparent; color:var(--ink)}
+  .chip b{font-size:14px; color:var(--accent); min-width:1ch; text-align:right}
+  .chip.zero b{color:var(--muted)}
+  .overall{display:flex; align-items:center; justify-content:space-between; margin-top:14px}
+  .stars{display:flex; gap:4px}
+  .stars button{font-size:26px; line-height:1; background:none; border:0; padding:2px; color:var(--line)}
+  .stars button.on{color:var(--accent)}
+
+  details.wheel summary{list-style:none; cursor:pointer; font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); padding:10px 0 2px}
+  details.wheel summary::-webkit-details-marker{display:none}
+  details.wheel summary::before{content:"+ "} details.wheel[open] summary::before{content:"– "}
+  .tg{margin-top:10px} .tg h4{margin:0 0 6px; font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:500}
+  .tags{display:flex; flex-wrap:wrap; gap:6px}
+  .tag{font-size:13px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--ink)}
+  .tag.on{background:var(--accent); border-color:var(--accent); color:#fff}
+  .sel-tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .sel-tags:empty{display:none}
+
+  .btn{font:inherit; font-family:var(--mono); font-size:13px; letter-spacing:.1em; text-transform:uppercase; padding:14px 16px; border-radius:12px;
+    border:1px solid var(--ink); background:var(--ink); color:var(--paper); width:100%}
+  .btn:disabled{opacity:.35}
+  .btn.ghost{background:transparent; color:var(--ink); border-color:var(--line)}
+  .btn.danger{background:transparent; color:#c0392b; border-color:#e4b4ad}
+  .btns{display:grid; gap:10px; margin-top:4px}
+  .btns.two{grid-template-columns:1fr 2fr}
+  .linkbtn{font-family:var(--mono); font-size:12px; background:none; border:0; color:var(--accent); padding:4px 0; text-transform:uppercase; letter-spacing:.08em}
+
+  /* Sammlung */
+  .tools{position:sticky; top:calc(46px + var(--safe-t)); z-index:4; background:var(--paper); padding:2px 0 10px}
+  .seg{display:flex; gap:6px; overflow-x:auto; margin-top:10px; scrollbar-width:none}
+  .seg::-webkit-scrollbar{display:none}
+  .seg button{flex:none; font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; padding:8px 12px; border-radius:999px;
+    border:1px solid var(--line); background:transparent; color:var(--ink)}
+  .seg button.on{background:var(--ink); color:var(--paper); border-color:var(--ink)}
+  .group h3{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; margin:18px 2px 8px; display:flex; justify-content:space-between; color:var(--muted); font-weight:500}
+  .group h3 span:first-child{color:var(--ink)}
+  .card{display:flex; gap:12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:8px; width:100%; text-align:left; font:inherit; color:inherit}
+  .card svg{width:64px; height:64px; flex:none}
+  .card .t{font-weight:600; font-size:16px}
+  .card .m{font-size:13px; color:var(--muted); margin-top:2px}
+  .card .d{font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:4px; display:flex; gap:10px}
+  .card .d .s{color:var(--accent)}
+  .empty{text-align:center; color:var(--muted); padding:48px 16px; font-size:15px; line-height:1.5}
+
+  .stat{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dotted var(--line); font-size:15px}
+  .stat:last-child{border:0}
+  .hint{font-size:14px; color:var(--muted); line-height:1.5}
+
+  nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:10; display:grid; grid-template-columns:repeat(3,1fr);
+    background:var(--paper); border-top:1px solid var(--line); padding-bottom:var(--safe-b)}
+  nav.tabs button{background:none; border:0; padding:10px 0 12px; color:var(--muted); font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:4px}
+  nav.tabs button svg{width:22px; height:22px}
+  nav.tabs button.on{color:var(--ink)}
+  .toast{position:fixed; left:50%; bottom:calc(84px + var(--safe-b)); transform:translateX(-50%) translateY(20px); opacity:0;
+    background:var(--ink); color:var(--paper); font-family:var(--mono); font-size:13px; padding:10px 16px; border-radius:999px; transition:.25s; pointer-events:none; z-index:20}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Cupping</h1>
+  <span class="sub" id="subtitle"></span>
+</header>
+
+<main>
+  <!-- BLOCK -->
+  <section class="view active" id="v-block"></section>
+
+  <!-- SAMMLUNG -->
+  <section class="view" id="v-list">
+    <div class="tools">
+      <input type="search" id="q" placeholder="Suchen: Röster, Land, Aroma …" autocomplete="off">
+      <div class="seg" id="groupseg"></div>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <!-- MEHR -->
+  <section class="view" id="v-more">
+    <div class="sheet" id="stats"></div>
+    <div class="sheet">
+      <div class="label" style="margin-bottom:10px">Backup</div>
+      <p class="hint" style="margin-top:0">Deine Kaffees sind nur auf diesem iPhone gespeichert. Exportiere ab und zu ein Backup (z. B. in die Dateien-App oder iCloud Drive).</p>
+      <div class="btns">
+        <button class="btn" id="exportBtn">Backup exportieren</button>
+        <button class="btn ghost" id="importBtn">Backup importieren</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <div class="sheet">
+      <div class="label" style="margin-bottom:10px">Installieren</div>
+      <p class="hint" style="margin:0">In Safari: <b>Teilen</b> → <b>Zum Home-Bildschirm</b>. Danach startet Tasty Diary wie eine App, im Vollbild und offline.</p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-tab="block" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polygon points="12,3 20.5,9.2 17.3,19.3 6.7,19.3 3.5,9.2"/><polygon points="12,8 15.4,10.5 14.1,14.5 9.9,14.5 8.6,10.5" fill="currentColor" opacity=".35"/></svg>Block</button>
+  <button data-tab="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Sammlung</button>
+  <button data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>Mehr</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+// ---------- Konstanten ----------
+const ATTRS = [
+  ["floral","Floral"],["acidic","Acidic"],["berry","Berry Fruit"],["citrus","Citrus Fruit"],["stone","Stone Fruit"],
+  ["spice","Spice"],["chocolate","Chocolate"],["nut","Nut"],["caramel","Caramel"],["sweet","Sweet"]
+];
+const REQUIRED = [
+  ["origin","Origin","Land, z. B. Äthiopien"],
+  ["producer","Producer","Farm / Kooperative"],
+  ["variety","Variety","z. B. Gesha, Bourbon"],
+  ["process","Process","Washed, Natural …"],
+  ["roaster","Roaster","Rösterei"]
+];
+const SUGGEST = {
+  process:["Washed","Natural","Honey","Anaerobic Natural","Anaerobic Washed","Carbonic Maceration","Wet-hulled","Double Fermentation"],
+  variety:["Gesha","Bourbon","Pink Bourbon","Typica","Caturra","Catuai","SL28","SL34","Heirloom","74110","Pacamara","Castillo","Sidra"],
+  origin:["Äthiopien","Kenia","Kolumbien","Brasilien","Guatemala","Costa Rica","Panama","Peru","Honduras","El Salvador","Ruanda","Burundi","Indonesien","Jemen","Mexiko","Bolivien","Ecuador","Uganda","Tansania","Nicaragua"]
+};
+const WHEEL = [
+  ["Floral",["Black Tea","Chamomile","Rose","Jasmine"]],
+  ["Berry",["Blackberry","Raspberry","Blueberry","Strawberry"]],
+  ["Dried & other fruit",["Raisin","Prune","Coconut","Cherry","Pomegranate","Pineapple","Grape","Apple","Peach","Pear"]],
+  ["Citrus",["Grapefruit","Orange","Lemon","Lime"]],
+  ["Sour / Fermented",["Sour Aromatics","Acetic Acid","Citric Acid","Malic Acid","Winey","Whiskey","Fermented","Overripe"]],
+  ["Green / Vegetative",["Olive Oil","Raw","Under-ripe","Peapod","Fresh","Dark Green","Vegetative","Hay-like","Herb-like","Beany"]],
+  ["Roasted",["Pipe Tobacco","Tobacco","Acrid","Ashy","Smoky","Brown Roast","Grain","Malt"]],
+  ["Spices",["Pungent","Pepper","Anise","Nutmeg","Cinnamon","Clove"]],
+  ["Nutty / Cocoa",["Peanuts","Hazelnut","Almond","Chocolate","Dark Chocolate"]],
+  ["Sweet",["Molasses","Maple Syrup","Caramelized","Honey","Brown Sugar","Vanilla","Vanillin","Overall Sweet"]],
+  ["Other",["Papery","Cardboard","Woody","Stale","Musty/Earthy","Medicinal","Rubber","Bitter","Salty"]]
+];
+const GROUPS = [["roaster","Röster"],["origin","Herkunft"],["variety","Varietät"],["process","Prozess"],["producer","Producer"],["month","Monat"]];
+
+// ---------- Speicher ----------
+const KEY = "tastydiary.coffees.v1", DRAFT = "tastydiary.draft.v1", PREF = "tastydiary.prefs.v1";
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ toast("Speichern fehlgeschlagen"); return false; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+let coffees = store.get(KEY, []);
+let prefs = Object.assign({ group:"roaster" }, store.get(PREF, {}));
+const saveAll = () => store.set(KEY, coffees);
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2));
+const today = () => { const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10); };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate = s => { if(!s) return ""; const [y,m,d] = s.split("-"); return `${d}.${m}.${y}`; };
+const emptyScores = () => Object.fromEntries(ATTRS.map(([k]) => [k,0]));
+const blank = () => ({ id:null, date:today(), origin:"", name:"", producer:"", variety:"", process:"", roaster:"", scores:emptyScores(), overall:0, tags:[], notes:"" });
+const isComplete = e => REQUIRED.every(([k]) => (e[k]||"").trim().length > 0);
+
+// ---------- Radar ----------
+const R = 120, STEP = R/5;
+const ang = i => (-90 + i*36) * Math.PI/180;
+const pt = (i, v) => [Math.cos(ang(i))*v*STEP, Math.sin(ang(i))*v*STEP];
+
+function radarSVG(scores, { mini=false } = {}){
+  const poly = ATTRS.map(([k],i) => pt(i, scores[k]||0).map(n=>n.toFixed(1)).join(",")).join(" ");
+  const hasAny = ATTRS.some(([k]) => (scores[k]||0) > 0);
+  if (mini){
+    let s = `<svg viewBox="-130 -130 260 260" aria-hidden="true">`;
+    s += `<circle r="${R}" fill="none" stroke="var(--line)" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>`;
+    s += `<circle r="${R*0.6}" fill="none" stroke="var(--line)" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>`;
+    if (hasAny) s += `<polygon points="${poly}" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="7" stroke-linejoin="round"/>`;
+    return s + `</svg>`;
+  }
+  let s = `<svg viewBox="-205 -185 410 370" id="radar" role="img" aria-label="Aromaprofil">`;
+  for (let k=1;k<=5;k++) s += `<circle r="${k*STEP}" fill="none" stroke="var(--line)" stroke-width="1.6" stroke-dasharray="1.5 4" stroke-linecap="round"/>`;
+  ATTRS.forEach((_,i) => { const [x,y]=pt(i,5); s += `<line x1="0" y1="0" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="1.6" stroke-dasharray="1.5 4" stroke-linecap="round"/>`; });
+  for (let k=1;k<=5;k++) s += `<text x="5" y="${-k*STEP+15}" font-size="10" fill="var(--muted)" style="fill:var(--muted)">${k}</text>`;
+  s += `<polygon id="rpoly" points="${poly}" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round" ${hasAny?"":'opacity="0"'}/>`;
+  ATTRS.forEach(([key],i) => {
+    for (let k=1;k<=5;k++){
+      const [x,y] = pt(i,k), on = (scores[key]||0) === k;
+      s += `<circle data-i="${i}" data-v="${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${on?6.5:4.2}" fill="${on?'var(--accent)':'var(--card)'}" stroke="${on?'var(--accent)':'var(--ink)'}" stroke-width="1.4"/>`;
+    }
+    const [lx,ly] = pt(i,6.2), c = Math.cos(ang(i));
+    const anchor = Math.abs(c) < .2 ? "middle" : (c > 0 ? "start" : "end");
+    const words = ATTRS[i][1].toUpperCase().split(" ");
+    const y0 = ly + 4 - (words.length-1)*7.5;
+    s += `<text x="${lx.toFixed(1)}" y="${y0.toFixed(1)}" font-size="14" letter-spacing=".5" text-anchor="${anchor}">` +
+         words.map((w,j)=>`<tspan x="${lx.toFixed(1)}" dy="${j?15:0}">${w}</tspan>`).join("") + `</text>`;
+  });
+  return s + `<rect x="-205" y="-185" width="410" height="370" fill="transparent" id="rhit"/></svg>`;
+}
+
+// ---------- Block (Formular) ----------
+let cur = null;      // aktueller Eintrag
+let editing = false; // true = bestehender Kaffee
+
+function datalists(){
+  const vals = k => [...new Set([...(SUGGEST[k]||[]), ...coffees.map(c=>c[k]).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,"de"));
+  return REQUIRED.map(([k]) => `<datalist id="dl-${k}">${vals(k).map(v=>`<option value="${esc(v)}">`).join("")}</datalist>`).join("");
+}
+
+function openBlock(entry, isEdit){
+  cur = JSON.parse(JSON.stringify(entry));
+  cur.scores = Object.assign(emptyScores(), cur.scores||{});
+  cur.tags = cur.tags || [];
+  editing = !!isEdit;
+  renderBlock();
+  showTab("block");
+  window.scrollTo(0,0);
+}
+
+function renderBlock(){
+  const el = document.getElementById("v-block");
+  const reqHTML = REQUIRED.map(([k,l,ph]) => `
+    <label class="field"><span class="label"><span>${l}</span><span class="req">*</span></span>
+      <input type="text" data-f="${k}" list="dl-${k}" value="${esc(cur[k])}" placeholder="${ph}" autocomplete="off" autocapitalize="words" enterkeyhint="next"></label>`);
+  el.innerHTML = `
+    ${datalists()}
+    <div class="sheet" id="head">
+      ${reqHTML[0]}
+      <label class="field"><span class="label"><span>Name / Region</span><span>optional</span></span>
+        <input type="text" data-f="name" value="${esc(cur.name)}" placeholder="z. B. Guji Hambela" autocomplete="off" autocapitalize="words"></label>
+      ${reqHTML.slice(1).join("")}
+      <label class="field"><span class="label"><span>Datum</span></span>
+        <input type="date" data-f="date" value="${esc(cur.date)}"></label>
+    </div>
+
+    <div class="sheet" id="taste">
+      <div class="lockmsg" id="lockmsg">Erst Origin, Producer, Variety, Process &amp; Roaster ausfüllen</div>
+      <div class="radar-wrap">${radarSVG(cur.scores)}</div>
+      <div class="chips" id="chips"></div>
+      <div class="overall">
+        <span class="label">Gesamteindruck</span>
+        <div class="stars" id="stars"></div>
+      </div>
+    </div>
+
+    <div class="sheet">
+      <label class="field"><span class="label"><span>Notes</span></span>
+        <textarea data-f="notes" placeholder="Wie schmeckt er? Brühmethode, Rezept, Eindrücke …">${esc(cur.notes)}</textarea></label>
+      <div class="sel-tags" id="seltags"></div>
+      <details class="wheel"><summary>Aromen aus dem Flavor Wheel</summary>
+        ${WHEEL.map(([g,ts]) => `<div class="tg"><h4>${g}</h4><div class="tags">${ts.map(t=>`<button type="button" class="tag" data-tag="${esc(t)}">${t}</button>`).join("")}</div></div>`).join("")}
+      </details>
+    </div>
+
+    <div class="btns ${editing?'two':''}">
+      ${editing ? `<button class="btn ghost" id="cancelBtn">Abbrechen</button>` : ""}
+      <button class="btn" id="saveBtn">${editing ? "Änderungen sichern" : "Kaffee speichern"}</button>
+    </div>
+    <div class="btns" style="margin-top:10px">
+      ${editing ? `<button class="btn danger" id="delBtn">Kaffee löschen</button>` : `<button class="linkbtn" id="resetBtn">Block leeren</button>`}
+    </div>`;
+
+  document.getElementById("title").textContent = editing ? "Bearbeiten" : "Neuer Block";
+  document.getElementById("subtitle").textContent = editing ? fmtDate(cur.date) : `#${coffees.length+1}`;
+
+  el.querySelectorAll("[data-f]").forEach(inp => inp.addEventListener("input", () => {
+    cur[inp.dataset.f] = inp.value; inp.classList.remove("missing"); onChange();
+  }));
+  el.querySelector("#rhit").parentNode.addEventListener("click", radarTap);
+  el.querySelectorAll(".tag").forEach(b => b.addEventListener("click", () => toggleTag(b.dataset.tag)));
+  el.querySelector("#saveBtn").addEventListener("click", save);
+  if (editing){
+    el.querySelector("#cancelBtn").addEventListener("click", () => { showTab("list"); });
+    el.querySelector("#delBtn").addEventListener("click", del);
+  } else {
+    el.querySelector("#resetBtn").addEventListener("click", () => {
+      if (confirm("Block leeren und neu anfangen?")){ store.del(DRAFT); openBlock(blank(), false); }
+    });
+  }
+  refreshTaste(); refreshTags(); refreshLock();
+}
+
+function onChange(){ refreshLock(); if (!editing) store.set(DRAFT, cur); }
+
+function refreshLock(){
+  const ok = isComplete(cur);
+  document.getElementById("taste").classList.toggle("locked", !ok);
+  document.getElementById("lockmsg").style.display = ok ? "none" : "block";
+}
+
+function radarTap(ev){
+  const svg = ev.currentTarget, p = svg.createSVGPoint();
+  p.x = ev.clientX; p.y = ev.clientY;
+  const { x, y } = p.matrixTransform(svg.getScreenCTM().inverse());
+  const dist = Math.hypot(x, y);
+  if (dist > R + 55) return;
+  let deg = Math.atan2(y, x) * 180/Math.PI + 90; deg = (deg + 360) % 360;
+  const i = Math.round(deg / 36) % 10;
+  let v = Math.min(5, Math.round(dist / STEP));
+  const key = ATTRS[i][0];
+  if (cur.scores[key] === v) v = 0;           // gleicher Punkt nochmal = zurücksetzen
+  setScore(key, v);
+}
+
+function setScore(key, v){ cur.scores[key] = v; refreshTaste(); onChange(); }
+
+function refreshTaste(){
+  const poly = document.getElementById("rpoly");
+  poly.setAttribute("points", ATTRS.map(([k],i) => pt(i, cur.scores[k]).map(n=>n.toFixed(1)).join(",")).join(" "));
+  poly.setAttribute("opacity", ATTRS.some(([k]) => cur.scores[k] > 0) ? "1" : "0");
+  document.querySelectorAll("#radar circle[data-i]").forEach(c => {
+    const on = cur.scores[ATTRS[+c.dataset.i][0]] === +c.dataset.v;
+    c.setAttribute("r", on ? 6.5 : 4.2);
+    c.setAttribute("fill", on ? "var(--accent)" : "var(--card)");
+    c.setAttribute("stroke", on ? "var(--accent)" : "var(--ink)");
+  });
+  const chips = document.getElementById("chips");
+  chips.innerHTML = ATTRS.map(([k,l]) => `<button type="button" class="chip ${cur.scores[k]?'':'zero'}" data-k="${k}"><span>${l}</span><b>${cur.scores[k]}</b></button>`).join("");
+  chips.querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => setScore(b.dataset.k, (cur.scores[b.dataset.k] + 1) % 6)));
+  const stars = document.getElementById("stars");
+  stars.innerHTML = [1,2,3,4,5].map(n => `<button type="button" class="${n<=cur.overall?'on':''}" data-n="${n}" aria-label="${n} von 5">★</button>`).join("");
+  stars.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    const n = +b.dataset.n; cur.overall = (cur.overall === n) ? 0 : n; refreshTaste(); onChange();
+  }));
+}
+
+function toggleTag(t){
+  const i = cur.tags.indexOf(t);
+  if (i >= 0) cur.tags.splice(i,1); else cur.tags.push(t);
+  refreshTags(); onChange();
+}
+function refreshTags(){
+  document.querySelectorAll("#v-block .tag[data-tag]").forEach(b => b.classList.toggle("on", cur.tags.includes(b.dataset.tag)));
+  const sel = document.getElementById("seltags");
+  sel.innerHTML = cur.tags.map(t => `<button type="button" class="tag on" data-rm="${esc(t)}">${esc(t)} ✕</button>`).join("");
+  sel.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => toggleTag(b.dataset.rm)));
+}
+
+function save(){
+  if (!isComplete(cur)){
+    REQUIRED.forEach(([k]) => { if(!(cur[k]||"").trim()) document.querySelector(`[data-f="${k}"]`).classList.add("missing"); });
+    toast("Bitte alle Pflichtfelder ausfüllen"); return;
+  }
+  REQUIRED.concat([["name"]]).forEach(([k]) => cur[k] = (cur[k]||"").trim());
+  const now = new Date().toISOString();
+  if (editing){
+    const i = coffees.findIndex(c => c.id === cur.id);
+    cur.updatedAt = now;
+    if (i >= 0) coffees[i] = cur; else coffees.push(cur);
+    saveAll(); toast("Änderungen gesichert"); renderList(); showTab("list");
+  } else {
+    cur.id = uid(); cur.createdAt = now; cur.updatedAt = now;
+    coffees.push(cur); saveAll(); store.del(DRAFT);
+    toast("Gespeichert ☕"); openBlock(blank(), false);
+  }
+}
+
+function del(){
+  if (!confirm("Diesen Kaffee wirklich löschen?")) return;
+  coffees = coffees.filter(c => c.id !== cur.id); saveAll();
+  toast("Gelöscht"); renderList(); showTab("list");
+}
+
+// ---------- Sammlung ----------
+function groupKey(c, g){
+  if (g === "month"){ const [y,m] = (c.date||"").split("-"); return y ? new Date(+y, +m-1, 1).toLocaleDateString("de-DE",{month:"long",year:"numeric"}) : "Ohne Datum"; }
+  return (c[g]||"").trim() || "—";
+}
+function renderList(){
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  document.getElementById("groupseg").innerHTML = GROUPS.map(([k,l]) => `<button data-g="${k}" class="${prefs.group===k?'on':''}">${l}</button>`).join("");
+  document.querySelectorAll("#groupseg button").forEach(b => b.addEventListener("click", () => { prefs.group = b.dataset.g; store.set(PREF, prefs); renderList(); }));
+
+  const list = document.getElementById("list");
+  if (!coffees.length){ list.innerHTML = `<div class="empty">Noch keine Kaffees.<br>Füll deinen ersten Cupping-Block aus.</div>`; return; }
+  const terms = q.split(/\s+/).filter(Boolean);
+  const hits = coffees.filter(c => {
+    if (!terms.length) return true;
+    const hay = [c.origin,c.name,c.producer,c.variety,c.process,c.roaster,c.notes,(c.tags||[]).join(" ")].join(" ").toLowerCase();
+    return terms.every(t => hay.includes(t));
+  });
+  if (!hits.length){ list.innerHTML = `<div class="empty">Nichts gefunden für „${esc(q)}“.</div>`; return; }
+
+  const g = prefs.group, map = new Map();
+  hits.slice().sort((a,b) => (b.date||"").localeCompare(a.date||"") || (b.createdAt||"").localeCompare(a.createdAt||""))
+      .forEach(c => { const k = groupKey(c,g); if(!map.has(k)) map.set(k,[]); map.get(k).push(c); });
+  let keys = [...map.keys()];
+  if (g !== "month") keys.sort((a,b) => a.localeCompare(b,"de"));
+
+  list.innerHTML = keys.map(k => {
+    const items = map.get(k), rated = items.filter(c=>c.overall);
+    const avg = rated.length ? (rated.reduce((s,c)=>s+c.overall,0)/rated.length).toFixed(1) : null;
+    return `<div class="group"><h3><span>${esc(k)}</span><span>${items.length}${avg?` · ø ${avg}★`:""}</span></h3>` +
+      items.map(c => {
+        const title = c.name ? `${c.origin} · ${c.name}` : c.origin;
+        const meta = [g!=="roaster"&&c.roaster, g!=="variety"&&c.variety, g!=="process"&&c.process, g!=="producer"&&c.producer].filter(Boolean).join(" · ");
+        return `<button class="card" data-id="${esc(c.id)}">${radarSVG(c.scores,{mini:true})}<div style="min-width:0">
+          <div class="t">${esc(title)}</div><div class="m">${esc(meta)}</div>
+          <div class="d"><span>${fmtDate(c.date)}</span>${c.overall?`<span class="s">${"★".repeat(c.overall)}</span>`:""}${(c.tags||[]).length?`<span>${esc(c.tags.slice(0,3).join(", "))}${c.tags.length>3?" …":""}</span>`:""}</div>
+        </div></button>`;
+      }).join("") + `</div>`;
+  }).join("");
+  list.querySelectorAll(".card").forEach(b => b.addEventListener("click", () => {
+    const c = coffees.find(x => x.id === b.dataset.id); if (c) openBlock(c, true);
+  }));
+}
+document.getElementById("q").addEventListener("input", renderList);
+
+// ---------- Mehr ----------
+function renderMore(){
+  const n = coffees.length, count = k => new Set(coffees.map(c=>c[k]).filter(Boolean)).size;
+  const rated = coffees.filter(c=>c.overall);
+  const fav = rated.slice().sort((a,b)=>b.overall-a.overall)[0];
+  document.getElementById("stats").innerHTML = `<div class="label" style="margin-bottom:6px">Statistik</div>
+    <div class="stat"><span>Kaffees</span><b>${n}</b></div>
+    <div class="stat"><span>Röster</span><b>${count("roaster")}</b></div>
+    <div class="stat"><span>Herkunftsländer</span><b>${count("origin")}</b></div>
+    <div class="stat"><span>Varietäten</span><b>${count("variety")}</b></div>
+    ${fav?`<div class="stat"><span>Bester</span><b>${esc(fav.origin)} · ${esc(fav.roaster)} ${"★".repeat(fav.overall)}</b></div>`:""}`;
+}
+
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  const data = JSON.stringify({ app:"tasty-diary", version:1, exportedAt:new Date().toISOString(), coffees }, null, 2);
+  const name = `tasty-diary-backup-${today()}.json`;
+  const file = new File([data], name, { type:"application/json" });
+  try{
+    if (navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file], title:"Tasty Diary Backup" }); return; }
+  }catch(e){ if (e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+});
+document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try{
+    const parsed = JSON.parse(await f.text());
+    const incoming = Array.isArray(parsed) ? parsed : parsed.coffees;
+    if (!Array.isArray(incoming)) throw new Error("format");
+    const byId = new Map(coffees.map(c => [c.id, c])); let added = 0, updated = 0;
+    incoming.forEach(c => {
+      if (!c || typeof c !== "object") return;
+      c.id = c.id || uid(); c.scores = Object.assign(emptyScores(), c.scores||{}); c.tags = c.tags||[];
+      const ex = byId.get(c.id);
+      if (!ex){ byId.set(c.id, c); added++; }
+      else if ((c.updatedAt||"") > (ex.updatedAt||"")){ byId.set(c.id, c); updated++; }
+    });
+    coffees = [...byId.values()]; saveAll(); renderMore(); renderList();
+    toast(`${added} neu, ${updated} aktualisiert`);
+  }catch(err){ toast("Datei konnte nicht gelesen werden"); }
+});
+
+// ---------- Navigation ----------
+function showTab(t){
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "v-"+t));
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  if (t === "list"){ document.getElementById("title").textContent = "Sammlung"; document.getElementById("subtitle").textContent = `${coffees.length} Kaffees`; renderList(); }
+  if (t === "more"){ document.getElementById("title").textContent = "Mehr"; document.getElementById("subtitle").textContent = ""; renderMore(); }
+  if (t === "block"){
+    document.getElementById("title").textContent = editing ? "Bearbeiten" : "Neuer Block";
+    document.getElementById("subtitle").textContent = editing ? fmtDate(cur.date) : `#${coffees.length+1}`;
+  }
+}
+document.querySelectorAll("nav.tabs button").forEach(b => b.addEventListener("click", () => {
+  const t = b.dataset.tab;
+  if (t === "block" && editing) openBlock(store.get(DRAFT, null) || blank(), false); // Tab "Block" = immer neuer Block
+  else { showTab(t); window.scrollTo(0,0); }
+}));
+
+let tt; function toast(msg){ const el = document.getElementById("toast"); el.textContent = msg; el.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>el.classList.remove("show"), 1900); }
+
+// ---------- Start: direkt ein offener Block ----------
+openBlock(store.get(DRAFT, null) || blank(), false);
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
